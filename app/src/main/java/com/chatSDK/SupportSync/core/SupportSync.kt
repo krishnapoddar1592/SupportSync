@@ -7,8 +7,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
+import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.repository.ChatRepository
+import com.chatSDK.SupportSync.domain.usecases.StartChatUseCase
 import com.chatSDK.SupportSync.ui.theme.SupportSyncTheme
 import kotlinx.coroutines.launch
 import retrofit2.Retrofit
@@ -110,12 +112,12 @@ class SupportSync private constructor(
     }
 
     fun startChat(
-        userName: String,
+        user: AppUser,
         onSuccess: (ChatSession) -> Unit,
         onError: (Exception) -> Unit
     ) {
         kotlinx.coroutines.GlobalScope.launch {
-            startChatUseCase(userName)
+            startChatUseCase(user)
                 .onSuccess(onSuccess)
                 .onFailure { onError(it as Exception) }
         }

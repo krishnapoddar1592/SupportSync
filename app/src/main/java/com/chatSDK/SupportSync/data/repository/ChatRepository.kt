@@ -9,6 +9,7 @@ import com.chatSDK.SupportSync.data.models.AppUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import okhttp3.MultipartBody
 import java.util.UUID
 
 class ChatRepository(
@@ -28,18 +29,18 @@ class ChatRepository(
 
     suspend fun sendMessage(sessionId: String, message: String): Result<Message> {
         return try {
-            val msg = Message(content = message, sender = "AppUser")
-            val sentMessage = apiService.sendMessage(msg)
-            _messages.value = _messages.value + sentMessage
+            val sentMessage = Message(content = message)
+            webSocketService.sendMessage(sessionId, message)
+            _messages.value += sentMessage
             Result.success(sentMessage)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun uploadImage(sessionId: String, uri: Uri): Result<String> {
+    suspend fun uploadImage(sessionId: String, file: MultipartBody.Part): Result<String> {
         return try {
-            val imageUrl = apiService.uploadImage(uri)
+            val imageUrl = apiService.uploadImage(sessionId, file)
             Result.success(imageUrl)
         } catch (e: Exception) {
             Result.failure(e)

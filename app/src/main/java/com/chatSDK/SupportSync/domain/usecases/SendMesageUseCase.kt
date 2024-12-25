@@ -1,5 +1,6 @@
 package com.chatSDK.SupportSync.domain.usecases
 
+import com.chatSDK.SupportSync.data.models.Message
 import com.chatSDK.SupportSync.data.repository.ChatRepository
 
 class SendMessageUseCase(private val chatRepository: ChatRepository) {

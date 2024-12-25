@@ -4,6 +4,7 @@ import com.chatSDK.SupportSync.core.SupportSyncConfig
 import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.Message
 import com.chatSDK.SupportSync.data.models.UserRole
+import com.google.gson.Gson
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
@@ -23,15 +24,14 @@ class WebSocketService(
         onError: (Throwable) -> Unit
     ) {
         val request = Request.Builder()
-            .url("$serverUrl/chat/$sessionId")
+            .url("$serverUrl/ws")
             .addHeader("Authorization", "Bearer ${config.apiKey}")
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 // Parse message and invoke callback
-                // This is a simplified implementation
-                val message = Message(content = text, sender = AppUser(1,"test",UserRole.CUSTOMER))
+                val message = Gson().fromJson(text, Message::class.java)
                 onMessage(message)
             }
 
@@ -41,8 +41,9 @@ class WebSocketService(
         })
     }
 
-    fun sendMessage(message: Message) {
-        webSocket?.send(message.toString())
+    fun sendMessage(sessionId: String, content: String) {
+        val payload = mapOf("sessionId" to sessionId, "content" to content)
+        webSocket?.send(Gson().toJson(payload))
     }
 
     fun disconnect() {
