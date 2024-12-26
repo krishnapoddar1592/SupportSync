@@ -1,53 +1,120 @@
 package com.chatSDK.SupportSync.data.api
 
-import com.chatSDK.SupportSync.core.SupportSyncConfig
-import com.chatSDK.SupportSync.data.models.AppUser
-import com.chatSDK.SupportSync.data.models.Message
-import com.chatSDK.SupportSync.data.models.UserRole
-import com.google.gson.Gson
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.WebSocket
-import okhttp3.WebSocketListener
+// Message data class to match the structure in HTML implementation
 
+
+import android.util.Log
+import com.chatSDK.SupportSync.core.SupportSyncConfig
+import com.chatSDK.SupportSync.data.models.Message
+import com.google.gson.Gson
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.schedulers.Schedulers
+import ua.naiksoftware.stomp.Stomp
+import ua.naiksoftware.stomp.StompClient
+import ua.naiksoftware.stomp.dto.LifecycleEvent
 
 class WebSocketService(
     private val serverUrl: String,
     private val config: SupportSyncConfig
 ) {
-    private var webSocket: WebSocket? = null
-    private val client = OkHttpClient()
+    private var stompClient: StompClient? = null
+    private val compositeDisposable = CompositeDisposable()
+    private val gson = Gson()
+    private val TAG = "WebSocketService"
+    fun removeQuotesAndUnescape(uncleanJson: String): String {
+        val noQuotes = uncleanJson.replace(Regex("^\"|\"$"), "")
+        return org.apache.commons.text.StringEscapeUtils.unescapeJava(noQuotes)
+    }
+
 
     fun connect(
-        sessionId: String,
         onMessage: (Message) -> Unit,
         onError: (Throwable) -> Unit
     ) {
-        val request = Request.Builder()
-            .url("$serverUrl/ws")
-            .addHeader("Authorization", "Bearer ${config.apiKey}")
-            .build()
+        val wsUrl = serverUrl.replace("http://", "ws://")
+        Log.d(TAG, "Attempting to connect to WebSocket at: $wsUrl")
 
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                // Parse message and invoke callback
-                val message = Gson().fromJson(text, Message::class.java)
-                onMessage(message)
-            }
+        stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, wsUrl)
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
-                onError(t)
-            }
+        // Optional: Configure connection
+        stompClient?.withClientHeartbeat(10000)?.withServerHeartbeat(10000)
+
+        // Listen for connection lifecycle events
+        compositeDisposable.add(
+            stompClient!!.lifecycle()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe { lifecycleEvent ->
+                    when (lifecycleEvent.type) {
+                        LifecycleEvent.Type.OPENED -> {
+                            Log.d(TAG, "STOMP connection opened")
+                        }
+                        LifecycleEvent.Type.CLOSED -> {
+                            Log.d(TAG, "STOMP connection closed")
+                        }
+                        LifecycleEvent.Type.ERROR -> {
+                            Log.e(TAG, "STOMP connection error", lifecycleEvent.exception)
+                            onError(lifecycleEvent.exception ?: Exception("Unknown error"))
+                        }
+
+                        LifecycleEvent.Type.FAILED_SERVER_HEARTBEAT -> TODO()
+                    }
+                }
+        )
+
+        // Subscribe to messages
+        compositeDisposable.add(
+            stompClient!!.topic("/topic/messages")
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ topicMessage ->
+                    Log.e("Tag",topicMessage.payload)
+                    val message = gson.fromJson(removeQuotesAndUnescape(topicMessage.payload), Message::class.java)
+                    onMessage(message)
+                }, { throwable ->
+                    Log.e(TAG, "Error on subscribe topic", throwable)
+                    onError(throwable)
+                })
+        )
+
+        stompClient?.connect()
+    }
+
+    fun sendMessage(sessionId: Long, userId: Long, username: String, content: String, imageUrl: String? = null) {
+        val messageContent = mapOf(
+            "content" to content,
+            "imageUrl" to imageUrl,
+            "sender" to mapOf(
+                "id" to userId,
+                "username" to username,
+                "role" to "CUSTOMER"
+            ),
+            "chatSession" to mapOf(
+                "id" to sessionId,
+                "user" to mapOf(
+                    "id" to userId,
+                    "username" to username,
+                    "role" to "CUSTOMER"
+                ),
+                "agent" to null,
+                "startedAt" to System.currentTimeMillis(),
+                "endedAt" to null
+            )
+        )
+
+        var subscribe = stompClient?.send(
+            "/app/chat.sendMessage",
+            gson.toJson(messageContent)
+        )?.subscribe({
+            Log.d(TAG, "Message sent successfully")
+        }, { throwable ->
+            Log.e(TAG, "Error sending message", throwable)
         })
     }
 
-    fun sendMessage(sessionId: String, content: String) {
-        val payload = mapOf("sessionId" to sessionId, "content" to content)
-        webSocket?.send(Gson().toJson(payload))
-    }
-
     fun disconnect() {
-        webSocket?.close(1000, "Session ended")
-        webSocket = null
+        compositeDisposable.clear()
+        stompClient?.disconnect()
     }
 }

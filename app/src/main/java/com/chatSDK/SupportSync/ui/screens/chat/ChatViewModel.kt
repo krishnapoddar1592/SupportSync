@@ -12,8 +12,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
+import com.chatSDK.SupportSync.data.api.WebSocketService
+import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.models.Message
+import com.google.gson.GsonBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -22,26 +27,57 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val webSocketService: WebSocketService
 ) : ViewModel() {
-
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
     private var currentSessionId: String? = null
+    private val _username = MutableStateFlow<String?>("")
 
     fun startSession(userName: String) {
         viewModelScope.launch {
-            val result = chatRepository.startSession(AppUser(username = userName, role = UserRole.CUSTOMER))
+            _username.value = userName
+            val result = chatRepository.startSession(AppUser(id = 123, username = userName, role = UserRole.CUSTOMER))
+            print(result)
             result.onSuccess { session ->
                 currentSessionId = session.id?.toString()
-                observeMessages()
+                connectWebSocket(session)
             }.onFailure {
-                _errorMessage.value = "Failed to start session: ${it.localizedMessage}"
+                print(it.localizedMessage)
+                _errorMessage.value = "Failed to start session: ${it}"
             }
+        }
+    }
+
+    private fun connectWebSocket(session: ChatSession) {
+        session.id?.toString()?.let { sessionId ->
+            session.user?.let {
+                webSocketService.connect(
+                    onMessage = { message ->
+                        viewModelScope.launch {
+                            _messages.value += message
+                        }
+                    },
+                    onError = { error ->
+                        viewModelScope.launch {
+                            _errorMessage.value = "WebSocket error: ${error.message}"
+                            _isConnected.value = false
+                            // Try to reconnect
+                            delay(5000) // Wait 5 seconds before reconnecting
+                            connectWebSocket(session)
+                        }
+                    }
+                )
+            }
+            _isConnected.value = true
         }
     }
 
@@ -56,11 +92,24 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMessage(content: String) {
+        if (!_isConnected.value) {
+            _errorMessage.value = "Not connected to chat server"
+            return
+        }
+
         currentSessionId?.let { sessionId ->
             viewModelScope.launch {
-                val result = chatRepository.sendMessage(sessionId, content)
-                result.onFailure {
-                    _errorMessage.value = "Failed to send message: ${it.localizedMessage}"
+                try {
+                    _username.value?.let { username ->
+                        webSocketService.sendMessage(
+                            sessionId = sessionId.toLong(),
+                            userId = 123,
+                            username = username,
+                            content = content
+                        )
+                    }
+                } catch (e: Exception) {
+                    _errorMessage.value = "Failed to send message: ${e.localizedMessage}"
                 }
             }
         }
@@ -78,7 +127,18 @@ class ChatViewModel @Inject constructor(
                         body = requestBody
                     )
                     val result = chatRepository.uploadImage(sessionId, multipartBody)
-                    result.onFailure {
+                    result.onSuccess { imageUrl ->
+                        // Send message with image URL via WebSocket
+                        _username.value?.let { username ->
+                            webSocketService.sendMessage(
+                                sessionId = sessionId.toLong(),
+                                userId = 123,
+                                username = username,
+                                content = "",
+                                imageUrl = imageUrl
+                            )
+                        }
+                    }.onFailure {
                         _errorMessage.value = "Failed to upload image: ${it.localizedMessage}"
                     }
                 } catch (e: Exception) {
@@ -90,6 +150,26 @@ class ChatViewModel @Inject constructor(
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        webSocketService.disconnect()
+    }
+
+    fun reconnect() {
+        viewModelScope.launch {
+            currentSessionId?.let { sessionId ->
+                val result = chatRepository.startSession(
+                    AppUser(id = 123, username = _username.value ?: "", role = UserRole.CUSTOMER)
+                )
+                result.onSuccess { session ->
+                    connectWebSocket(session)
+                }.onFailure {
+                    _errorMessage.value = "Failed to reconnect: ${it.message}"
+                }
+            }
+        }
     }
 }
 

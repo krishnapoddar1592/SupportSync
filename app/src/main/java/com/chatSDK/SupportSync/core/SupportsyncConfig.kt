@@ -5,6 +5,7 @@ import com.chatSDK.SupportSync.ui.theme.SupportSyncTheme
 // SupportSyncConfig remains unchanged
 data class SupportSyncConfig(
     val serverUrl: String,
+    val wsUrl:String,
     val apiKey: String,
     val theme: SupportSyncTheme,
     val features: Features

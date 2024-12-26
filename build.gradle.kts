@@ -7,8 +7,10 @@ buildscript {
         classpath("com.google.dagger:hilt-android-gradle-plugin:2.49")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.21")// Use the latest version
 
+
     }
 }
+
 
 plugins {
     alias(libs.plugins.android.application) apply false

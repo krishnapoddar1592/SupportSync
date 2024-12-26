@@ -35,6 +35,7 @@ class SupportSync private constructor(
 
     class Builder(private val context: Context) {
         private var serverUrl: String = ""
+        private var wsUrl:String=""
         private var apiKey: String = ""
         private var theme: SupportSyncTheme = SupportSyncTheme.Default
         private var features: Features = Features()
@@ -100,6 +101,7 @@ class SupportSync private constructor(
                 if (instance == null) {
                     val config = SupportSyncConfig(
                         serverUrl = serverUrl,
+                        wsUrl=wsUrl,
                         apiKey = apiKey,
                         theme = theme.copy(customBubbleComposable = customChatBubble),
                         features = features

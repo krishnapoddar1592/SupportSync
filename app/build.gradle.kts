@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.chatSDK.SupportSync"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.chatSDK.SupportSync"
@@ -75,11 +75,21 @@ dependencies {
 
     // Coil for image loading (used in ImageMessageBubble)
     implementation(libs.coil.compose)
-    implementation("com.google.dagger:hilt-android:2.48")
-    kapt("com.google.dagger:hilt-android-compiler:2.48")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("com.google.dagger:hilt-android:2.50")
+    kapt("com.google.dagger:hilt-android-compiler:2.50")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
-    // Lifecycle ViewModel with Hilt
-    implementation("androidx.hilt:hilt-lifecycle-viewmodel:1.0.0-alpha03")
-    kapt("androidx.hilt:hilt-compiler:1.0.0")
+    // Hilt ViewModel
+    implementation("androidx.hilt:hilt-work:1.1.0")
+    kapt("androidx.hilt:hilt-compiler:1.1.0")
+
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+    //stomp protocl dependency
+    implementation("com.github.NaikSoftware:StompProtocolAndroid:1.6.6")
+
+    implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
+    implementation("io.reactivex.rxjava2:rxjava:2.2.21") // RxJava dependency
+    implementation("org.apache.commons:commons-text:1.10.0")
 }

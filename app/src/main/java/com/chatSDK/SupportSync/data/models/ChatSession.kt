@@ -5,18 +5,17 @@ import androidx.annotation.RequiresApi
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.util.UUID
 
 
 data class ChatSession(
     val id: Long? = null,
     val user: AppUser? = null, // The customer
     val agent: AppUser? = null, // The support agent
-    var startedAt: LocalDateTime? = null,
-    var endedAt: LocalDateTime? = null
+    var startedAt: String? = null,
+    var endedAt: String? = null
 ) {
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun setStartedAt(timestamp: Long) {
-        startedAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault())
-    }
+//    @RequiresApi(Build.VERSION_CODES.O)
+//    fun setStartedAt(timestamp: Long) {
+//        startedAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault())
+//    }
 }

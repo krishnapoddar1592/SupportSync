@@ -1,15 +1,18 @@
 package com.chatSDK.SupportSync.data.repository
 
 import android.net.Uri
+import android.util.Log
 import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
 import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.models.Message
 import com.chatSDK.SupportSync.data.models.AppUser
+import com.chatSDK.SupportSync.ui.screens.chat.ChatViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.MultipartBody
+import retrofit2.HttpException
 import java.util.UUID
 
 class ChatRepository(
@@ -20,17 +23,24 @@ class ChatRepository(
 
     suspend fun startSession(user: AppUser): Result<ChatSession> {
         return try {
-            val session = apiService.startSession(user)
-            Result.success(session)
+            val response=apiService.startSession(user)
+            if(response.isSuccessful){
+                Result.success(response.body()?:ChatSession())
+            }
+            else{
+                Log.e("Error",response.message())
+                Result.failure(HttpException(response))
+            }
         } catch (e: Exception) {
+            Log.e("Error",e.message.toString())
             Result.failure(e)
         }
     }
 
-    suspend fun sendMessage(sessionId: String, message: String): Result<Message> {
+    suspend fun sendMessage(sessionId: Long, userId:Long,userName:String,message: String,imageUrl:String): Result<Message> {
         return try {
             val sentMessage = Message(content = message)
-            webSocketService.sendMessage(sessionId, message)
+            webSocketService.sendMessage(sessionId,userId,userName,message,imageUrl)
             _messages.value += sentMessage
             Result.success(sentMessage)
         } catch (e: Exception) {
@@ -49,7 +59,6 @@ class ChatRepository(
 
     fun observeMessages(sessionId: String): Flow<List<Message>> {
         webSocketService.connect(
-            sessionId = sessionId,
             onMessage = { message ->
                 _messages.value = _messages.value + message
             },
