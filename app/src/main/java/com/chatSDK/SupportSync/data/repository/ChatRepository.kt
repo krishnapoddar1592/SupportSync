@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.MultipartBody
+import org.json.JSONObject
 import retrofit2.HttpException
 import java.util.UUID
 
@@ -48,14 +49,30 @@ class ChatRepository(
         }
     }
 
-    suspend fun uploadImage(sessionId: String, file: MultipartBody.Part): Result<String> {
+    suspend fun uploadImage(userId: Long, file: MultipartBody.Part): Result<String> {
         return try {
-            val imageUrl = apiService.uploadImage(sessionId, file)
-            Result.success(imageUrl)
+            val response = apiService.uploadImage(userId, file)
+            Log.e("TAG", response.toString())
+            if (response.isSuccessful) {
+                val responseBody = response.body()
+                if (responseBody != null) {
+                    // Parse the JSON response to extract filePath
+                    val filePath = responseBody.filePath
+                    Result.success(filePath)
+                } else {
+                    Log.e("Error", "Response body is null")
+                    Result.failure(Exception("Empty response body"))
+                }
+            } else {
+                Log.e("Error", response.message())
+                Result.failure(HttpException(response))
+            }
         } catch (e: Exception) {
+            Log.e("Error at upload", e.message.toString())
             Result.failure(e)
         }
     }
+
 
     fun observeMessages(sessionId: String): Flow<List<Message>> {
         webSocketService.connect(

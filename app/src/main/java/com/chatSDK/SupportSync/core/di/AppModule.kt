@@ -25,8 +25,8 @@ object AppModule {
     @Singleton
     fun provideConfig(): SupportSyncConfig {
         return SupportSyncConfig(
-            serverUrl = "http://192.168.0.102:8080" ,
-            wsUrl="http://192.168.0.102:8080/ws/websocket",// For REST API // For REST API
+            serverUrl = "http://10.0.2.2:8080" ,
+            wsUrl="http://10.0.2.2:8080/ws/websocket",// For REST API // For REST API
             apiKey = "Basic " + Base64.getEncoder().encodeToString("username:password".toByteArray()),
             theme = SupportSyncTheme.Default,
             features = Features()

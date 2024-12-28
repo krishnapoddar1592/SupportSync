@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import com.chatSDK.SupportSync.data.api.WebSocketService
 import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.models.Message
+import com.chatSDK.SupportSync.utils.ImageUtils
 import com.google.gson.GsonBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,6 +43,8 @@ class ChatViewModel @Inject constructor(
     private var currentSessionId: String? = null
     private val _username = MutableStateFlow<String?>("")
 
+    private val _userId=MutableStateFlow<Long?>(12345)
+
     fun startSession(userName: String) {
         viewModelScope.launch {
             _username.value = userName
@@ -52,7 +55,7 @@ class ChatViewModel @Inject constructor(
                 connectWebSocket(session)
             }.onFailure {
                 print(it.localizedMessage)
-                _errorMessage.value = "Failed to start session: ${it}"
+                _errorMessage.value = "Failed to start session: $it"
             }
         }
     }
@@ -115,35 +118,52 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    // In ChatViewModel.kt
     fun uploadImage(uri: Uri, context: Context) {
-        currentSessionId?.let { sessionId ->
-            viewModelScope.launch {
-                try {
-                    val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("File not found")
-                    val requestBody = inputStream.readBytes().toRequestBody("image/jpeg".toMediaTypeOrNull())
-                    val multipartBody = MultipartBody.Part.createFormData(
-                        name = "file",
-                        filename = "image.jpg",
-                        body = requestBody
-                    )
-                    val result = chatRepository.uploadImage(sessionId, multipartBody)
-                    result.onSuccess { imageUrl ->
-                        // Send message with image URL via WebSocket
-                        _username.value?.let { username ->
-                            webSocketService.sendMessage(
-                                sessionId = sessionId.toLong(),
-                                userId = 123,
-                                username = username,
-                                content = "",
-                                imageUrl = imageUrl
+        viewModelScope.launch {
+            try {
+                // First compress the image
+                val compressResult = ImageUtils.compressImage(context, uri)
+
+                compressResult.fold(
+                    onSuccess = { compressedBytes ->
+                        currentSessionId?.let { sessionId ->
+                            val requestBody = compressedBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                            val multipartBody = MultipartBody.Part.createFormData(
+                                name = "file",
+                                filename = "image.jpg",
+                                body = requestBody
                             )
+
+                            val result =
+                                _userId.value?.let { chatRepository.uploadImage(it, multipartBody) }
+                            result?.onSuccess { imageUrl ->
+                                _username.value?.let { username ->
+                                    webSocketService.sendMessage(
+                                        sessionId = sessionId.toLong(),
+                                        userId = 123,
+                                        username = username,
+                                        content = "",
+                                        imageUrl = imageUrl
+                                    )
+                                }
+                            }?.onFailure { error ->
+                                _errorMessage.value = when {
+                                    error.message?.contains("413") == true ->
+                                        "Image is too large. Please select a smaller image."
+
+                                    else -> "Failed to upload image: ${error.localizedMessage}"
+                                }
+                            } ?: "Error"
                         }
-                    }.onFailure {
-                        _errorMessage.value = "Failed to upload image: ${it.localizedMessage}"
+                    },
+                    onFailure = { error ->
+                        _errorMessage.value = error.message ?: "Failed to process image"
                     }
-                } catch (e: Exception) {
-                    _errorMessage.value = "Error processing image: ${e.localizedMessage}"
-                }
+                )
+            } catch (e: Exception) {
+
+                _errorMessage.value = "Error processing image: ${e.localizedMessage}"
             }
         }
     }

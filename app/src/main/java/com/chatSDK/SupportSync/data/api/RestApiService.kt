@@ -4,6 +4,7 @@ import android.net.Uri
 import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.models.Message
+import com.chatSDK.SupportSync.data.models.UploadImageResponse
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
@@ -21,9 +22,10 @@ interface RestApiService {
     @Multipart
     @POST("/chat/uploadImage")
     suspend fun uploadImage(
-        @Part("sessionId") sessionId: String,
+        @Part("userId") userId: Long,
         @Part file: MultipartBody.Part
-    ): String
+    ): Response<UploadImageResponse>
+
 
     @GET("/chat/sessions/{sessionId}/messages")
     suspend fun getMessages(@Path("sessionId") sessionId: String): List<Message>
