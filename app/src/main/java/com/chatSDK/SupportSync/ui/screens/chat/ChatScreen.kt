@@ -175,9 +175,9 @@ fun MessageBubble(
             }
 
             // Display image if available
-            imageUrl?.let {
+            if(imageUrl!=null && imageUrl!=""){
                 AsyncImage(
-                    model = it,
+                    model = imageUrl,
                     contentDescription = "Attached Image",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -187,12 +187,13 @@ fun MessageBubble(
                 )
             }
 
+
             // Message text
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 color = textColor,
-                textAlign = if (isUserMessage) TextAlign.End else TextAlign.Start
+//                textAlign =textAlignΩ if (isUserMessage) TextAlign.End else TextAlign.Start
             )
         }
     }
