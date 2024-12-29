@@ -1,8 +1,5 @@
 package com.chatSDK.SupportSync.data.api
 
-// Message data class to match the structure in HTML implementation
-
-
 import android.util.Log
 import com.chatSDK.SupportSync.core.SupportSyncConfig
 import com.chatSDK.SupportSync.data.models.Message
@@ -22,22 +19,21 @@ class WebSocketService(
     private val compositeDisposable = CompositeDisposable()
     private val gson = Gson()
     private val TAG = "WebSocketService"
-    fun removeQuotesAndUnescape(uncleanJson: String): String {
+
+    private fun removeQuotesAndUnescape(uncleanJson: String): String {
         val noQuotes = uncleanJson.replace(Regex("^\"|\"$"), "")
         return org.apache.commons.text.StringEscapeUtils.unescapeJava(noQuotes)
     }
 
-
     fun connect(
+        sessionId: Long,
         onMessage: (Message) -> Unit,
         onError: (Throwable) -> Unit
     ) {
         val wsUrl = serverUrl.replace("http://", "ws://")
-        Log.d(TAG, "Attempting to connect to WebSocket at: $wsUrl")
+        Log.d(TAG, "Attempting to connect to WebSocket at: $wsUrl for session: $sessionId")
 
         stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, wsUrl)
-
-        // Optional: Configure connection
         stompClient?.withClientHeartbeat(10000)?.withServerHeartbeat(10000)
 
         // Listen for connection lifecycle events
@@ -48,32 +44,34 @@ class WebSocketService(
                 .subscribe { lifecycleEvent ->
                     when (lifecycleEvent.type) {
                         LifecycleEvent.Type.OPENED -> {
-                            Log.d(TAG, "STOMP connection opened")
+                            Log.d(TAG, "STOMP connection opened for session: $sessionId")
                         }
                         LifecycleEvent.Type.CLOSED -> {
-                            Log.d(TAG, "STOMP connection closed")
+                            Log.d(TAG, "STOMP connection closed for session: $sessionId")
                         }
                         LifecycleEvent.Type.ERROR -> {
-                            Log.e(TAG, "STOMP connection error", lifecycleEvent.exception)
+                            Log.e(TAG, "STOMP connection error for session: $sessionId", lifecycleEvent.exception)
                             onError(lifecycleEvent.exception ?: Exception("Unknown error"))
                         }
-
-                        LifecycleEvent.Type.FAILED_SERVER_HEARTBEAT -> TODO()
+                        LifecycleEvent.Type.FAILED_SERVER_HEARTBEAT -> {
+                            Log.e(TAG, "Failed server heartbeat for session: $sessionId")
+                            onError(Exception("Failed server heartbeat"))
+                        }
                     }
                 }
         )
 
-        // Subscribe to messages
+        // Subscribe to session-specific topic
         compositeDisposable.add(
-            stompClient!!.topic("/topic/messages")
+            stompClient!!.topic("/topic/chat/$sessionId")
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ topicMessage ->
-                    Log.e("Tag",topicMessage.payload)
+                    Log.d(TAG, "Received message for session $sessionId: ${topicMessage.payload}")
                     val message = gson.fromJson(removeQuotesAndUnescape(topicMessage.payload), Message::class.java)
                     onMessage(message)
                 }, { throwable ->
-                    Log.e(TAG, "Error on subscribe topic", throwable)
+                    Log.e(TAG, "Error on subscribe topic for session $sessionId", throwable)
                     onError(throwable)
                 })
         )
@@ -103,13 +101,13 @@ class WebSocketService(
             )
         )
 
-        var subscribe = stompClient?.send(
+        stompClient?.send(
             "/app/chat.sendMessage",
             gson.toJson(messageContent)
         )?.subscribe({
-            Log.d(TAG, "Message sent successfully")
+            Log.d(TAG, "Message sent successfully to session: $sessionId")
         }, { throwable ->
-            Log.e(TAG, "Error sending message", throwable)
+            Log.e(TAG, "Error sending message to session: $sessionId", throwable)
         })
     }
 

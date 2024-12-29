@@ -74,8 +74,10 @@ class ChatRepository(
     }
 
 
-    fun observeMessages(sessionId: String): Flow<List<Message>> {
+    fun observeMessages(sessionId: Long): Flow<List<Message>> {
+
         webSocketService.connect(
+            sessionId,
             onMessage = { message ->
                 _messages.value = _messages.value + message
             },

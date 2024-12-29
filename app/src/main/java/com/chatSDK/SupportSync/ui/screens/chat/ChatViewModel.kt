@@ -40,30 +40,30 @@ class ChatViewModel @Inject constructor(
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
-    private var currentSessionId: String? = null
+    private var currentSessionId: Long? = null
     private val _username = MutableStateFlow<String?>("")
-
-    private val _userId=MutableStateFlow<Long?>(12345)
+    private val _userId = MutableStateFlow<Long?>(12345)
 
     fun startSession(userName: String) {
         viewModelScope.launch {
             _username.value = userName
             val result = chatRepository.startSession(AppUser(id = 123, username = userName, role = UserRole.CUSTOMER))
-            print(result)
             result.onSuccess { session ->
-                currentSessionId = session.id?.toString()
-                connectWebSocket(session)
+                session.id?.let {
+                    currentSessionId = it
+                    connectWebSocket(session)
+                }
             }.onFailure {
-                print(it.localizedMessage)
-                _errorMessage.value = "Failed to start session: $it"
+                _errorMessage.value = "Failed to start session: ${it.message}"
             }
         }
     }
 
     private fun connectWebSocket(session: ChatSession) {
-        session.id?.toString()?.let { sessionId ->
+        session.id?.let { sessionId ->
             session.user?.let {
                 webSocketService.connect(
+                    sessionId = sessionId,
                     onMessage = { message ->
                         viewModelScope.launch {
                             _messages.value += message
@@ -84,16 +84,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun observeMessages() {
-        currentSessionId?.let { sessionId ->
-            viewModelScope.launch {
-                chatRepository.observeMessages(sessionId).collect { messages ->
-                    _messages.value = messages
-                }
-            }
-        }
-    }
-
     fun sendMessage(content: String) {
         if (!_isConnected.value) {
             _errorMessage.value = "Not connected to chat server"
@@ -105,7 +95,7 @@ class ChatViewModel @Inject constructor(
                 try {
                     _username.value?.let { username ->
                         webSocketService.sendMessage(
-                            sessionId = sessionId.toLong(),
+                            sessionId = sessionId,
                             userId = 123,
                             username = username,
                             content = content
@@ -118,11 +108,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // In ChatViewModel.kt
     fun uploadImage(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {
-                // First compress the image
                 val compressResult = ImageUtils.compressImage(context, uri)
 
                 compressResult.fold(
@@ -135,12 +123,11 @@ class ChatViewModel @Inject constructor(
                                 body = requestBody
                             )
 
-                            val result =
-                                _userId.value?.let { chatRepository.uploadImage(it, multipartBody) }
+                            val result = _userId.value?.let { chatRepository.uploadImage(it, multipartBody) }
                             result?.onSuccess { imageUrl ->
                                 _username.value?.let { username ->
                                     webSocketService.sendMessage(
-                                        sessionId = sessionId.toLong(),
+                                        sessionId = sessionId,
                                         userId = 123,
                                         username = username,
                                         content = "",
@@ -151,10 +138,9 @@ class ChatViewModel @Inject constructor(
                                 _errorMessage.value = when {
                                     error.message?.contains("413") == true ->
                                         "Image is too large. Please select a smaller image."
-
                                     else -> "Failed to upload image: ${error.localizedMessage}"
                                 }
-                            } ?: "Error"
+                            }
                         }
                     },
                     onFailure = { error ->
@@ -162,7 +148,6 @@ class ChatViewModel @Inject constructor(
                     }
                 )
             } catch (e: Exception) {
-
                 _errorMessage.value = "Error processing image: ${e.localizedMessage}"
             }
         }
