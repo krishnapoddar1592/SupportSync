@@ -1,20 +1,16 @@
 package com.chatSDK.SupportSync.data.repository
 
-import android.net.Uri
 import android.util.Log
 import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
+import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.models.Message
-import com.chatSDK.SupportSync.data.models.AppUser
-import com.chatSDK.SupportSync.ui.screens.chat.ChatViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.MultipartBody
-import org.json.JSONObject
 import retrofit2.HttpException
-import java.util.UUID
 
 class ChatRepository(
     private val webSocketService: WebSocketService,
