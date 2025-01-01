@@ -34,8 +34,14 @@ class ChatViewModel @Inject constructor(
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages
 
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
+    private val _uploadedImageUrl = MutableStateFlow<String?>(null)
+    val uploadedImageUrl: StateFlow<String?> = _uploadedImageUrl.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
@@ -43,7 +49,77 @@ class ChatViewModel @Inject constructor(
     private var currentSessionId: Long? = null
     private val _username = MutableStateFlow<String?>("")
     private val _userId = MutableStateFlow<Long?>(12345)
+    fun setError(message: String) {
+        _errorMessage.value = message
+    }
 
+    fun uploadImage(uri: Uri, context: Context) {
+        viewModelScope.launch {
+            try {
+                _isUploading.value = true
+                val compressResult = ImageUtils.compressImage(context, uri)
+
+                compressResult.fold(
+                    onSuccess = { compressedBytes ->
+                        _userId.value?.let { userId ->
+                            val requestBody = compressedBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                            val multipartBody = MultipartBody.Part.createFormData(
+                                name = "file",
+                                filename = "image.jpg",
+                                body = requestBody
+                            )
+
+                            chatRepository.uploadImage(userId, multipartBody)
+                                .onSuccess { imageUrl ->
+                                    _uploadedImageUrl.value = imageUrl
+                                }
+                                .onFailure { error ->
+                                    _errorMessage.value = when {
+                                        error.message?.contains("413") == true ->
+                                            "Image is too large. Please select a smaller image."
+                                        else -> "Failed to upload image: ${error.localizedMessage}"
+                                    }
+                                }
+                        }
+                    },
+                    onFailure = { error ->
+                        _errorMessage.value = error.message ?: "Failed to process image"
+                    }
+                )
+            } catch (e: Exception) {
+                _errorMessage.value = "Error processing image: ${e.localizedMessage}"
+            } finally {
+                _isUploading.value = false
+            }
+        }
+    }
+
+    fun sendMessage(content: String) {
+        if (!_isConnected.value) {
+            _errorMessage.value = "Not connected to chat server"
+            return
+        }
+
+        currentSessionId?.let { sessionId ->
+            viewModelScope.launch {
+                try {
+                    _username.value?.let { username ->
+                        webSocketService.sendMessage(
+                            sessionId = sessionId,
+                            userId = _userId.value ?: 123,
+                            username = username,
+                            content = content,
+                            imageUrl = _uploadedImageUrl.value
+                        )
+                        // Clear the uploaded image URL after sending
+                        _uploadedImageUrl.value = null
+                    }
+                } catch (e: Exception) {
+                    _errorMessage.value = "Failed to send message: ${e.localizedMessage}"
+                }
+            }
+        }
+    }
     fun startSession(userName: String) {
         viewModelScope.launch {
             _username.value = userName
@@ -84,74 +160,75 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage(content: String) {
-        if (!_isConnected.value) {
-            _errorMessage.value = "Not connected to chat server"
-            return
-        }
-
-        currentSessionId?.let { sessionId ->
-            viewModelScope.launch {
-                try {
-                    _username.value?.let { username ->
-                        webSocketService.sendMessage(
-                            sessionId = sessionId,
-                            userId = 123,
-                            username = username,
-                            content = content
-                        )
-                    }
-                } catch (e: Exception) {
-                    _errorMessage.value = "Failed to send message: ${e.localizedMessage}"
-                }
-            }
-        }
-    }
-
-    fun uploadImage(uri: Uri, context: Context) {
-        viewModelScope.launch {
-            try {
-                val compressResult = ImageUtils.compressImage(context, uri)
-
-                compressResult.fold(
-                    onSuccess = { compressedBytes ->
-                        currentSessionId?.let { sessionId ->
-                            val requestBody = compressedBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
-                            val multipartBody = MultipartBody.Part.createFormData(
-                                name = "file",
-                                filename = "image.jpg",
-                                body = requestBody
-                            )
-
-                            val result = _userId.value?.let { chatRepository.uploadImage(it, multipartBody) }
-                            result?.onSuccess { imageUrl ->
-                                _username.value?.let { username ->
-                                    webSocketService.sendMessage(
-                                        sessionId = sessionId,
-                                        userId = 123,
-                                        username = username,
-                                        content = "",
-                                        imageUrl = imageUrl
-                                    )
-                                }
-                            }?.onFailure { error ->
-                                _errorMessage.value = when {
-                                    error.message?.contains("413") == true ->
-                                        "Image is too large. Please select a smaller image."
-                                    else -> "Failed to upload image: ${error.localizedMessage}"
-                                }
-                            }
-                        }
-                    },
-                    onFailure = { error ->
-                        _errorMessage.value = error.message ?: "Failed to process image"
-                    }
-                )
-            } catch (e: Exception) {
-                _errorMessage.value = "Error processing image: ${e.localizedMessage}"
-            }
-        }
-    }
+//    fun sendMessage(content: String) {
+//        if (!_isConnected.value) {
+//            _errorMessage.value = "Not connected to chat server"
+//            return
+//        }
+//
+//        currentSessionId?.let { sessionId ->
+//            viewModelScope.launch {
+//                try {
+//                    _username.value?.let { username ->
+//                        webSocketService.sendMessage(
+//                            sessionId = sessionId,
+//                            userId = 123,
+//                            username = username,
+//                            content = content
+//                        )
+//                    }
+//                } catch (e: Exception) {
+//                    _errorMessage.value = "Failed to send message: ${e.localizedMessage}"
+//                }
+//            }
+//        }
+//    }
+//
+//    fun uploadImage(uri: Uri, context: Context)
+//    {
+//        viewModelScope.launch {
+//            try {
+//                val compressResult = ImageUtils.compressImage(context, uri)
+//
+//                compressResult.fold(
+//                    onSuccess = { compressedBytes ->
+//                        currentSessionId?.let { sessionId ->
+//                            val requestBody = compressedBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+//                            val multipartBody = MultipartBody.Part.createFormData(
+//                                name = "file",
+//                                filename = "image.jpg",
+//                                body = requestBody
+//                            )
+//
+//                            val result = _userId.value?.let { chatRepository.uploadImage(it, multipartBody) }
+//                            result?.onSuccess { imageUrl ->
+//                                _username.value?.let { username ->
+//                                    webSocketService.sendMessage(
+//                                        sessionId = sessionId,
+//                                        userId = 123,
+//                                        username = username,
+//                                        content = "",
+//                                        imageUrl = imageUrl
+//                                    )
+//                                }
+//                            }?.onFailure { error ->
+//                                _errorMessage.value = when {
+//                                    error.message?.contains("413") == true ->
+//                                        "Image is too large. Please select a smaller image."
+//                                    else -> "Failed to upload image: ${error.localizedMessage}"
+//                                }
+//                            }
+//                        }
+//                    },
+//                    onFailure = { error ->
+//                        _errorMessage.value = error.message ?: "Failed to process image"
+//                    }
+//                )
+//            } catch (e: Exception) {
+//                _errorMessage.value = "Error processing image: ${e.localizedMessage}"
+//            }
+//        }
+//    }
 
     fun clearError() {
         _errorMessage.value = null
@@ -175,6 +252,9 @@ class ChatViewModel @Inject constructor(
                 }
             }
         }
+    }
+    fun clearUploadedImage() {
+        _uploadedImageUrl.value = null
     }
 }
 

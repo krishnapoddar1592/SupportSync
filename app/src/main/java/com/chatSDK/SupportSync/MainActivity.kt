@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -20,6 +21,7 @@ import com.chatSDK.SupportSync.ui.theme.SupportSyncTheme
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CompletableDeferred
 import java.time.LocalDateTime
 
 
@@ -35,7 +37,6 @@ class MainActivity : ComponentActivity() {
         val session = gson.fromJson(jsonResponse, ChatSession::class.java)
         println(session)
 
-        // Image Picker
         val selectedImageUri = mutableStateOf<Uri?>(null)
         val imagePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             selectedImageUri.value = uri
@@ -43,19 +44,18 @@ class MainActivity : ComponentActivity() {
 
 
         setContent {
-            val viewModel:ChatViewModel= hiltViewModel()
+            val viewModel: ChatViewModel = hiltViewModel()
+
+
             SupportSyncTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     ChatScreen(
                         viewModel = viewModel,
-                        userName = "User123",
-                        onPickImage = {
-                            imagePickerLauncher.launch("image/*")
-                            selectedImageUri.value // Return the selected image URI
-                        }
+                        userName = "User123"
                     )
                 }
             }
         }
+
     }
 }
