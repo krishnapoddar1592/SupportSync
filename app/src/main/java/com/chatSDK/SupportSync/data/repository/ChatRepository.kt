@@ -5,7 +5,9 @@ import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
 import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.ChatSession
+import com.chatSDK.SupportSync.data.models.IssueCategory
 import com.chatSDK.SupportSync.data.models.Message
+import com.chatSDK.SupportSync.data.models.SessionRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,9 +20,9 @@ class ChatRepository(
 ) {
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
 
-    suspend fun startSession(user: AppUser): Result<ChatSession> {
+    suspend fun startSession(user: AppUser, category: IssueCategory?): Result<ChatSession> {
         return try {
-            val response=apiService.startSession(user)
+            val response=apiService.startSession(SessionRequest(user,category))
             if(response.isSuccessful){
                 Result.success(response.body()?:ChatSession())
             }
@@ -77,7 +79,8 @@ class ChatRepository(
             onMessage = { message ->
                 _messages.value = _messages.value + message
             },
-            onError = { /* Handle error */ }
+            onError = { /* Handle error */ },
+            onConnected = {}
         )
         return _messages.asStateFlow()
     }

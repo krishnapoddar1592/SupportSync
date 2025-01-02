@@ -3,27 +3,19 @@ package com.chatSDK.SupportSync.core
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
-import com.chatSDK.SupportSync.data.models.AppUser
-import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.models.IssueCategory
 import com.chatSDK.SupportSync.data.repository.ChatRepository
-import com.chatSDK.SupportSync.domain.usecases.StartChatUseCase
 import com.chatSDK.SupportSync.ui.screens.chat.ChatScreen
 import com.chatSDK.SupportSync.ui.screens.chat.PreChatScreen
 import com.chatSDK.SupportSync.ui.theme.SupportSyncTheme
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -150,7 +142,10 @@ class SupportSync private constructor(
             } else {
                 ChatScreen(
                     viewModel = hiltViewModel(),
-                    userName = userName
+                    userName = userName,
+                    title = userName,
+                    category = category,
+                    desc = description
                 )
             }
         }

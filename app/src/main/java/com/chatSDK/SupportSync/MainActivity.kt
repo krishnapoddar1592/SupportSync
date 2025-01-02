@@ -51,21 +51,24 @@ class MainActivity : ComponentActivity() {
             val viewModel: ChatViewModel = hiltViewModel()
             var showChat by remember { mutableStateOf(false) }
             var category by remember { mutableStateOf<IssueCategory?>(null) }
-            var userName by remember { mutableStateOf("") }
+            var title by remember { mutableStateOf("") }
             var description by remember { mutableStateOf("") }
             SupportSyncTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     if (!showChat) {
                         PreChatScreen { selectedCategory, name, desc ->
                             category = selectedCategory
-                            userName = name
+                            title = name
                             description = desc
                             showChat = true
                         }
                     } else {
                         ChatScreen(
                             viewModel = hiltViewModel(),
-                            userName = userName
+                            userName = "User123",
+                            title=title,
+                            category=category,
+                            desc=description
                         )
                     }
                 }

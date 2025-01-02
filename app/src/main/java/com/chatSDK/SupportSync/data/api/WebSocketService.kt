@@ -19,6 +19,7 @@ class WebSocketService(
     private val compositeDisposable = CompositeDisposable()
     private val gson = Gson()
     private val TAG = "WebSocketService"
+    private var isConnected = false
 
     private fun removeQuotesAndUnescape(uncleanJson: String): String {
         val noQuotes = uncleanJson.replace(Regex("^\"|\"$"), "")
@@ -28,7 +29,8 @@ class WebSocketService(
     fun connect(
         sessionId: Long,
         onMessage: (Message) -> Unit,
-        onError: (Throwable) -> Unit
+        onError: (Throwable) -> Unit,
+        onConnected: () -> Unit
     ) {
         val wsUrl = serverUrl.replace("http://", "ws://")
         Log.d(TAG, "Attempting to connect to WebSocket at: $wsUrl for session: $sessionId")
@@ -45,16 +47,21 @@ class WebSocketService(
                     when (lifecycleEvent.type) {
                         LifecycleEvent.Type.OPENED -> {
                             Log.d(TAG, "STOMP connection opened for session: $sessionId")
+                            isConnected = true
+                            onConnected()
                         }
                         LifecycleEvent.Type.CLOSED -> {
                             Log.d(TAG, "STOMP connection closed for session: $sessionId")
+                            isConnected = false
                         }
                         LifecycleEvent.Type.ERROR -> {
                             Log.e(TAG, "STOMP connection error for session: $sessionId", lifecycleEvent.exception)
+                            isConnected = false
                             onError(lifecycleEvent.exception ?: Exception("Unknown error"))
                         }
                         LifecycleEvent.Type.FAILED_SERVER_HEARTBEAT -> {
                             Log.e(TAG, "Failed server heartbeat for session: $sessionId")
+                            isConnected = false
                             onError(Exception("Failed server heartbeat"))
                         }
                     }

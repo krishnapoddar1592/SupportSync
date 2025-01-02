@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.chatSDK.SupportSync.data.api.WebSocketService
 import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.ChatSession
+import com.chatSDK.SupportSync.data.models.IssueCategory
 import com.chatSDK.SupportSync.data.models.Message
 import com.chatSDK.SupportSync.data.models.UserRole
 import com.chatSDK.SupportSync.data.repository.ChatRepository
@@ -116,14 +117,27 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
-    fun startSession(userName: String) {
+    data class InitialMessage(
+        val title: String,
+        val description: String
+    )
+
+    fun startSession(
+        userName: String,
+        title: String,
+        category: IssueCategory?,
+        desc: String
+    ) {
         viewModelScope.launch {
             _username.value = userName
-            val result = chatRepository.startSession(AppUser(id = 123, username = userName, role = UserRole.CUSTOMER))
+            val result = chatRepository.startSession(
+                AppUser(id = 123, username = userName, role = UserRole.CUSTOMER),
+                category
+            )
             result.onSuccess { session ->
                 session.id?.let {
                     currentSessionId = it
-                    connectWebSocket(session)
+                    connectWebSocket(session, InitialMessage(title, desc))
                 }
             }.onFailure {
                 _errorMessage.value = "Failed to start session: ${it.message}"
@@ -131,9 +145,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun connectWebSocket(session: ChatSession) {
+    private fun connectWebSocket(
+        session: ChatSession,
+        initialMessage: InitialMessage? = null
+    ) {
         session.id?.let { sessionId ->
-            session.user?.let {
+            session.user?.let { user ->
                 webSocketService.connect(
                     sessionId = sessionId,
                     onMessage = { message ->
@@ -145,14 +162,35 @@ class ChatViewModel @Inject constructor(
                         viewModelScope.launch {
                             _errorMessage.value = "WebSocket error: ${error.message}"
                             _isConnected.value = false
-                            // Try to reconnect
-                            delay(5000) // Wait 5 seconds before reconnecting
-                            connectWebSocket(session)
+                            // Try to reconnect with the same initial message
+                            delay(5000)
+                            connectWebSocket(session, initialMessage)
+                        }
+                    },
+                    onConnected = {
+                        viewModelScope.launch {
+                            _isConnected.value = true
+                            // Send initial message once connected
+                            initialMessage?.let { msg ->
+                                val formattedContent = """
+                                Title: ${msg.title}
+                                Description: ${msg.description}
+                            """.trimIndent()
+
+                                // Using the existing WebSocketService's sendMessage signature
+                                user.id?.let {
+                                    webSocketService.sendMessage(
+                                        sessionId = sessionId,
+                                        userId = it,
+                                        username = user.username,
+                                        content = formattedContent
+                                    )
+                                }
+                            }
                         }
                     }
                 )
             }
-            _isConnected.value = true
         }
     }
 
@@ -239,7 +277,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             currentSessionId?.let { sessionId ->
                 val result = chatRepository.startSession(
-                    AppUser(id = 123, username = _username.value ?: "", role = UserRole.CUSTOMER)
+                    AppUser(id = 123, username = _username.value ?: "", role = UserRole.CUSTOMER),
+                    IssueCategory.BILLING
                 )
                 result.onSuccess { session ->
                     connectWebSocket(session)

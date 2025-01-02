@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
@@ -40,6 +38,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.chatSDK.SupportSync.data.models.IssueCategory
 import com.chatSDK.SupportSync.ui.components.ImagePreview
 import com.chatSDK.SupportSync.ui.components.LoadingIndicator
 import com.chatSDK.SupportSync.ui.components.MessageBubble
@@ -47,7 +46,10 @@ import com.chatSDK.SupportSync.ui.components.MessageBubble
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
-    userName: String
+    userName: String,
+    title: String,
+    category: IssueCategory?,
+    desc: String
 ) {
     val messages by viewModel.messages.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -56,7 +58,7 @@ fun ChatScreen(
     val context = LocalContext.current
 
     LaunchedEffect(userName) {
-        viewModel.startSession(userName)
+        viewModel.startSession(userName,title,category,desc)
     }
     // Image picker launcher
     val launcher = rememberLauncherForActivityResult(
