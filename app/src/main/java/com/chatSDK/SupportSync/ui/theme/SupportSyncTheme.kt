@@ -17,7 +17,7 @@ data class SupportSyncTheme(
 ) {
     companion object {
         val Default = SupportSyncTheme(
-            primaryColor = Color.Blue,
+            primaryColor = Color.Green,
             secondaryColor = Color.Gray,
             backgroundColor = Color.White,
             textColor = Color.Black,
