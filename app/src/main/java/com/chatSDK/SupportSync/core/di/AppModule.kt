@@ -8,6 +8,8 @@ import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
 import com.chatSDK.SupportSync.data.repository.ChatRepository
 import com.chatSDK.SupportSync.core.SupportSyncConfig
+import com.chatSDK.SupportSync.data.models.AppUser
+import com.chatSDK.SupportSync.data.models.UserRole
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,7 +31,7 @@ object AppModule {
             wsUrl="http://10.0.2.2:8080/ws/websocket",// For REST API // For REST API
             apiKey = "Basic " + Base64.getEncoder().encodeToString("username:password".toByteArray()),
             theme = SupportSyncTheme.Default,
-            userName = "User123",
+            user = AppUser(123,"User123",UserRole.CUSTOMER),
             features = Features()
         )
     }

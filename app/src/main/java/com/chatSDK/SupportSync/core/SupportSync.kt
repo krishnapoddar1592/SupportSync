@@ -3,18 +3,17 @@ package com.chatSDK.SupportSync.core
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
+import com.chatSDK.SupportSync.data.repository.ChatRepository
 import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.IssueCategory
 import com.chatSDK.SupportSync.data.models.UserRole
-import com.chatSDK.SupportSync.data.repository.ChatRepository
 import com.chatSDK.SupportSync.ui.screens.chat.ChatScreen
 import com.chatSDK.SupportSync.ui.screens.chat.PreChatScreen
 import com.chatSDK.SupportSync.ui.theme.SupportSyncTheme
@@ -23,10 +22,8 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class SupportSync private constructor(
-    private val context: Context,
-    private val config: SupportSyncConfig
-) {
+class SupportSync private constructor(private val context: Context, private val config: SupportSyncConfig) {
+
     private lateinit var webSocketService: WebSocketService
     private lateinit var retrofit: Retrofit
     private lateinit var apiService: RestApiService
@@ -56,18 +53,22 @@ class SupportSync private constructor(
 
     companion object {
         @Volatile private var instance: SupportSync? = null
-        fun builder(context: Context) = Builder(context)
+
+        fun builder(context: Context): Builder {
+            return Builder(context)
+        }
+
+        fun getInstance(): SupportSync {
+            return instance ?: throw IllegalStateException("SupportSync is not initialized. Call builder() first.")
+        }
     }
 
     class Builder(private val context: Context) {
         private var serverUrl: String = ""
         private var wsUrl: String = ""
         private var apiKey: String = ""
+        private var user: AppUser? = null
         private var theme: SupportSyncTheme = SupportSyncTheme.Default
-        private var features: Features = Features()
-        private var customChatBubble: (@Composable () -> Unit)? = null
-        private var errorHandler: ((Throwable) -> Unit)? = null
-        private var user: AppUser? = null // New field for username
 
         fun serverUrl(url: String) = apply {
             this.serverUrl = url
@@ -76,92 +77,62 @@ class SupportSync private constructor(
             }
         }
 
-        fun webSocketUrl(url: String) = apply {
-            this.wsUrl = url
+        fun apiKey(key: String) = apply { this.apiKey = key }
+
+        fun user(id: Long, username: String) = apply {
+            this.user = AppUser(id = id, username = username, role = UserRole.CUSTOMER)
         }
 
-        fun apiKey(key: String) = apply {
-            this.apiKey = key
-        }
-
-        fun theme(theme: SupportSyncTheme) = apply {
-            this.theme = theme
-        }
-
-        fun features(features: Features) = apply {
-            this.features = features
-        }
-
-        fun errorHandler(handler: (Throwable) -> Unit) = apply {
-            this.errorHandler = handler
-        }
-
-        fun customChatBubble(composable: @Composable () -> Unit) = apply {
-            this.customChatBubble = composable
-        }
-
-        fun user(userId:Long,username: String) = apply { // Method to set username
-            this.user = AppUser(userId,username,UserRole.CUSTOMER)
-        }
+        fun theme(theme: SupportSyncTheme) = apply { this.theme = theme }
 
         fun build(): SupportSync {
-            validateConfiguration()
+            require(serverUrl.isNotEmpty()) { "Server URL must be set" }
+            require(apiKey.isNotEmpty()) { "API key must be set" }
+            require(user != null) { "User details must be set" }
+
+            val config = SupportSyncConfig(
+                serverUrl = serverUrl,
+                wsUrl = wsUrl,
+                apiKey = apiKey,
+                theme = theme,
+                user = user!!,
+                features = Features()
+            )
 
             synchronized(SupportSync::class.java) {
                 if (instance == null) {
-                    val config = user?.let {
-                        SupportSyncConfig(
-                            serverUrl = serverUrl,
-                            wsUrl = wsUrl,
-                            apiKey = apiKey,
-                            theme = theme.copy(customBubbleComposable = customChatBubble),
-                            features = features,
-                            user = it // Pass username to config
-                        )
-                    }
-                    instance = config?.let { SupportSync(context.applicationContext, it) }
+                    instance = SupportSync(context, config)
                 }
-                return requireNotNull(instance)
+                return instance!!
             }
-        }
-
-        private fun validateConfiguration() {
-            require(serverUrl.isNotEmpty()) { "Server URL must be set" }
-            require(wsUrl.isNotEmpty()) { "WebSocket URL must be set" }
-            require(apiKey.isNotEmpty()) { "API key must be set" }
-            require(user!=null) { "Username must be set" } // Validate username
         }
     }
 
-    fun showSupportChat(
-        activity: ComponentActivity,
-        config: SupportSyncConfig
-    ) {
+    fun showSupportChat(activity: ComponentActivity) {
         activity.setContent {
             var showChat by remember { mutableStateOf(false) }
             var category by remember { mutableStateOf<IssueCategory?>(null) }
             var title by remember { mutableStateOf("") }
             var description by remember { mutableStateOf("") }
 
-            if (!showChat) {
-                PreChatScreen { selectedCategory, issueTitle, desc ->
-                    category = selectedCategory
-                    title = issueTitle
-                    description = desc
-                    showChat = true
+            SupportSyncTheme {
+                if (!showChat) {
+                    PreChatScreen { selectedCategory, issueTitle, desc ->
+                        category = selectedCategory
+                        title = issueTitle
+                        description = desc
+                        showChat = true
+                    }
+                } else {
+                    ChatScreen(
+                        user = config.user,
+                        title = title,
+                        category = category,
+                        desc = description,
+                        viewModel = hiltViewModel() // Adjust as per your ViewModel integration
+                    )
                 }
-            } else {
-                ChatScreen(
-                    viewModel = hiltViewModel(),
-                    user = config.user,
-                    title = title,
-                    category = category,
-                    desc = description
-                )
             }
         }
-    }
-    fun endChat() {
-        webSocketService.disconnect()
     }
 }

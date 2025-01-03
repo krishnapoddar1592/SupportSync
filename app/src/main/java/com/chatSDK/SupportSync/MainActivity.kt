@@ -15,8 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chatSDK.SupportSync.core.di.LocalDateTimeAdapter
+import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.ChatSession
 import com.chatSDK.SupportSync.data.models.IssueCategory
+import com.chatSDK.SupportSync.data.models.UserRole
 import com.chatSDK.SupportSync.ui.screens.chat.ChatScreen
 import com.chatSDK.SupportSync.ui.screens.chat.ChatViewModel
 import com.chatSDK.SupportSync.ui.screens.chat.PreChatScreen
@@ -65,7 +67,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         ChatScreen(
                             viewModel = hiltViewModel(),
-                            userName = "User123",
+                            user = AppUser(123,"User123",UserRole.CUSTOMER),
                             title=title,
                             category=category,
                             desc=description
