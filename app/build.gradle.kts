@@ -1,23 +1,23 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.compose")
     id("kotlin-kapt")
     id("dagger.hilt.android.plugin")
     id("maven-publish")
 }
-
 
 android {
     namespace = "com.chatSDK.SupportSync"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.chatSDK.SupportSync"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+
+        // For libraries, use these instead of versionCode and versionName
+        group = "com.chatSDK"
+        version = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -31,15 +31,52 @@ android {
             )
         }
     }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
         jvmTarget = "17"
     }
+
     buildFeatures {
         compose = true
+    }
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                groupId = "com.chatSDK"
+                artifactId = "SupportSync"
+                version = "1.0.0"
+
+                from(components["release"])
+
+                pom {
+                    name.set("SupportSync")
+                    description.set("A chat support SDK for Android applications")
+                    url.set("https://github.com/krishnapoddar1592/SupportSync")
+
+                    licenses {
+                        license {
+                            name.set("The Apache License, Version 2.0")
+                            url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
