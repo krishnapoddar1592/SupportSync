@@ -12,13 +12,14 @@ SupportSync is a versatile Android chat SDK that enables seamless integration of
 
 ## Features
 
-- Real-time communication using WebSocket.
-- Image sharing and message threading.
-- Fully customizable UI using **Jetpack Compose**.
-- Material 3 design principles for modern aesthetics.
-- Built-in error handling and automatic reconnections.
-- Pre-chat form for collecting user details and categorizing issues.
-- Clean and scalable architecture.
+- 🌐 **Real-time communication** using WebSocket
+- 🖼️ **Image sharing** and message threading
+- 🎨 **Fully customizable UI** using Jetpack Compose
+- 🧑‍🎨 **Material 3 design principles** for modern aesthetics
+- 🛡️ **Built-in error handling** and automatic reconnections
+- 📝 **Pre-chat form** for collecting user details and categorizing issues
+- 🏗️ **Clean and scalable architecture**
+
 
 ---
 
