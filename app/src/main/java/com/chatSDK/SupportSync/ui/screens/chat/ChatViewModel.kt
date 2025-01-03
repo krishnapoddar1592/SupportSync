@@ -123,15 +123,15 @@ class ChatViewModel @Inject constructor(
     )
 
     fun startSession(
-        userName: String,
+        user: AppUser,
         title: String,
         category: IssueCategory?,
         desc: String
     ) {
         viewModelScope.launch {
-            _username.value = userName
+            _username.value = user.username
             val result = chatRepository.startSession(
-                AppUser(id = 123, username = userName, role = UserRole.CUSTOMER),
+                AppUser(id = user.id, username = user.username, role = UserRole.CUSTOMER),
                 category
             )
             result.onSuccess { session ->

@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.IssueCategory
 import com.chatSDK.SupportSync.ui.components.ImagePreview
 import com.chatSDK.SupportSync.ui.components.LoadingIndicator
@@ -46,7 +47,7 @@ import com.chatSDK.SupportSync.ui.components.MessageBubble
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
-    userName: String,
+    user: AppUser,
     title: String,
     category: IssueCategory?,
     desc: String
@@ -57,8 +58,8 @@ fun ChatScreen(
     val uploadedImageUrl by viewModel.uploadedImageUrl.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(userName) {
-        viewModel.startSession(userName,title,category,desc)
+    LaunchedEffect(user) {
+        viewModel.startSession(user,title,category,desc)
     }
     // Image picker launcher
     val launcher = rememberLauncherForActivityResult(
@@ -93,7 +94,7 @@ fun ChatScreen(
                 MessageBubble(
                     message = message.content,
                     sender = message.sender?.username.orEmpty(),
-                    isUserMessage = message.sender?.username == userName,
+                    isUserMessage = message.sender?.username == user.username,
                     imageUrl = message.imageUrl,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )

@@ -29,6 +29,7 @@ object AppModule {
             wsUrl="http://10.0.2.2:8080/ws/websocket",// For REST API // For REST API
             apiKey = "Basic " + Base64.getEncoder().encodeToString("username:password".toByteArray()),
             theme = SupportSyncTheme.Default,
+            userName = "User123",
             features = Features()
         )
     }

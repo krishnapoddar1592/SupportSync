@@ -11,7 +11,9 @@ import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chatSDK.SupportSync.data.api.RestApiService
 import com.chatSDK.SupportSync.data.api.WebSocketService
+import com.chatSDK.SupportSync.data.models.AppUser
 import com.chatSDK.SupportSync.data.models.IssueCategory
+import com.chatSDK.SupportSync.data.models.UserRole
 import com.chatSDK.SupportSync.data.repository.ChatRepository
 import com.chatSDK.SupportSync.ui.screens.chat.ChatScreen
 import com.chatSDK.SupportSync.ui.screens.chat.PreChatScreen
@@ -65,10 +67,10 @@ class SupportSync private constructor(
         private var features: Features = Features()
         private var customChatBubble: (@Composable () -> Unit)? = null
         private var errorHandler: ((Throwable) -> Unit)? = null
+        private var user: AppUser? = null // New field for username
 
         fun serverUrl(url: String) = apply {
             this.serverUrl = url
-            // Automatically set WebSocket URL if not explicitly set
             if (this.wsUrl.isEmpty()) {
                 this.wsUrl = url.replace("http", "ws") + "/ws/websocket"
             }
@@ -98,19 +100,26 @@ class SupportSync private constructor(
             this.customChatBubble = composable
         }
 
+        fun user(userId:Long,username: String) = apply { // Method to set username
+            this.user = AppUser(userId,username,UserRole.CUSTOMER)
+        }
+
         fun build(): SupportSync {
             validateConfiguration()
 
             synchronized(SupportSync::class.java) {
                 if (instance == null) {
-                    val config = SupportSyncConfig(
-                        serverUrl = serverUrl,
-                        wsUrl = wsUrl,
-                        apiKey = apiKey,
-                        theme = theme.copy(customBubbleComposable = customChatBubble),
-                        features = features
-                    )
-                    instance = SupportSync(context.applicationContext, config)
+                    val config = user?.let {
+                        SupportSyncConfig(
+                            serverUrl = serverUrl,
+                            wsUrl = wsUrl,
+                            apiKey = apiKey,
+                            theme = theme.copy(customBubbleComposable = customChatBubble),
+                            features = features,
+                            user = it // Pass username to config
+                        )
+                    }
+                    instance = config?.let { SupportSync(context.applicationContext, it) }
                 }
                 return requireNotNull(instance)
             }
@@ -120,8 +129,10 @@ class SupportSync private constructor(
             require(serverUrl.isNotEmpty()) { "Server URL must be set" }
             require(wsUrl.isNotEmpty()) { "WebSocket URL must be set" }
             require(apiKey.isNotEmpty()) { "API key must be set" }
+            require(user!=null) { "Username must be set" } // Validate username
         }
     }
+
     fun showSupportChat(
         activity: ComponentActivity,
         config: SupportSyncConfig
@@ -129,21 +140,21 @@ class SupportSync private constructor(
         activity.setContent {
             var showChat by remember { mutableStateOf(false) }
             var category by remember { mutableStateOf<IssueCategory?>(null) }
-            var userName by remember { mutableStateOf("") }
+            var title by remember { mutableStateOf("") }
             var description by remember { mutableStateOf("") }
 
             if (!showChat) {
-                PreChatScreen { selectedCategory, name, desc ->
+                PreChatScreen { selectedCategory, issueTitle, desc ->
                     category = selectedCategory
-                    userName = name
+                    title = issueTitle
                     description = desc
                     showChat = true
                 }
             } else {
                 ChatScreen(
                     viewModel = hiltViewModel(),
-                    userName = userName,
-                    title = userName,
+                    user = config.user,
+                    title = title,
                     category = category,
                     desc = description
                 )
