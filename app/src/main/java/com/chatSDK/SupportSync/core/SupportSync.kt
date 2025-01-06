@@ -66,10 +66,10 @@ class SupportSync private constructor(private val context: Context, private val 
     }
 
     class Builder(private val context: Context) {
-        private var serverUrl: String = "http://10.0.2.2:8080"
-        private var wsUrl: String = "ws://10.0.2.2:8080/ws/websocket"
+        private var serverUrl: String = ""
+        private var wsUrl: String = ""
         @SuppressLint("NewApi")
-        private var apiKey: String = "Basic " + Base64.getEncoder().encodeToString("username:password".toByteArray())
+        private var apiKey: String = ""
         private var user: AppUser? = null
         private var theme: SupportSyncTheme = SupportSyncTheme.Default
 
@@ -79,7 +79,17 @@ class SupportSync private constructor(private val context: Context, private val 
 
         fun theme(theme: SupportSyncTheme) = apply { this.theme = theme }
 
+        fun serverUrl(url: String) = apply {
+            this.serverUrl = url
+            if (this.wsUrl.isEmpty()) {
+                this.wsUrl = url.replace("http", "ws") + "/ws/websocket"
+            }
+        }
+        fun apiKey(key: String) = apply { this.apiKey = key }
+
         fun build(): SupportSync {
+            require(serverUrl.isNotEmpty()) { "Server URL must be set" }
+            require(apiKey.isNotEmpty()) { "API key must be set" }
             require(user != null) { "User details must be set" }
 
             val config = SupportSyncConfig(
