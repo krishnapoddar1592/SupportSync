@@ -100,7 +100,23 @@ Ensure the `AndroidManifest.xml` includes your application class:
 </application>
 ```
 
-### Step 2: Initialize SupportSync
+
+### Step 2: Host the SupportSync-Backend
+The instructions to host the backend are provided the the [SupportSync-Backend](https://github.com/krishnapoddar1592/SupportSync-Backend) Repository.
+
+
+### Step 3: Add the server domain of the hosted backend in the network_security_config file of the app:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">your-server-domain</domain>
+    </domain-config>
+</network-security-config>
+```
+
+### Step 3: Initialize SupportSync
 Initialize the SDK in your `Application` class:
 ```kotlin
 @HiltAndroidApp
@@ -116,6 +132,8 @@ class YourApplication : Application() {
     }
 }
 ```
+
+
 
 ---
 
