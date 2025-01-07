@@ -129,6 +129,7 @@ class ChatViewModel @Inject constructor(
         desc: String
     ) {
         viewModelScope.launch {
+            _userId.value=user.id
             _username.value = user.username
             val result = chatRepository.startSession(
                 AppUser(id = user.id, username = user.username, role = UserRole.CUSTOMER),
